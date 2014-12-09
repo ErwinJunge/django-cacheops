@@ -7,6 +7,7 @@ import threading
 import six
 from funcy import memoize
 from .cross import md5hex
+from collections import Counter
 
 import django
 from django.db import models
@@ -157,3 +158,76 @@ def carefully_strip_whitespace(text):
 
 def get_thread_id():
     return threading.current_thread().ident
+
+
+def get_related_fields(obj_or_class):
+    related_fields = (
+        obj_or_class._meta.get_all_related_objects()
+        + obj_or_class._meta.get_all_related_many_to_many_objects()
+    )
+    return related_fields
+
+
+def get_prefetch_related_args(obj_or_class):
+    prefetch_related_args = [
+        field.get_accessor_name()
+        for field
+        in get_related_fields(obj_or_class)
+    ]
+    prefetch_related_args.extend(
+        [
+            field.attname
+            for field
+            in obj_or_class._meta.local_many_to_many
+        ]
+    )
+    return prefetch_related_args
+
+
+def get_related_objects(obj, classes_to_ignore=None, max_depth=0):
+    """
+    Transparently get all related objects of current object
+    """
+    if classes_to_ignore is None:
+        classes_to_ignore = Counter()
+    # build list of querysets
+    querysets = []
+    # inverse foreign keys and inverse m2ms
+    related_fields = get_related_fields(obj)
+    for field in related_fields:
+        queryset = getattr(obj, field.get_accessor_name()).all()
+        if classes_to_ignore.get(queryset.model, 0) <= max_depth:
+            querysets.append(queryset)
+    # direct m2ms
+    for field in obj._meta.local_many_to_many:
+        queryset = getattr(obj, field.attname).all()
+        if classes_to_ignore.get(queryset.model, 0) <= max_depth:
+            querysets.append(queryset)
+    # iterate over querysets
+    for queryset in querysets:
+        prefetch_related_args = get_prefetch_related_args(queryset.model)
+        queryset = queryset.prefetch_related(*prefetch_related_args).select_related()
+        for item in queryset:
+            yield item
+    # direct foreign keys
+    foreign_keys = filter(
+        lambda item: isinstance(item, models.ForeignKey),
+        obj._meta.local_fields,
+    )
+    for field in foreign_keys:
+        if classes_to_ignore.get(field.model, 0) <= max_depth:
+            pk = getattr(obj, field.attname)
+            if pk:
+                prefetch_related_args = get_prefetch_related_args(field.model)
+                try:
+                    item = (
+                        field
+                        .model
+                        .objects
+                        .prefetch_related(*prefetch_related_args)
+                        .select_related()
+                        .get(pk=pk)
+                    )
+                    yield item
+                except field.model.DoesNotExist:
+                    pass

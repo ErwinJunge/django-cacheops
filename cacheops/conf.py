@@ -15,6 +15,7 @@ profile_defaults = {
     'ops': (),
     'local_get': False,
     'db_agnostic': True,
+    'invalidate_related_objects_depth': 0,
 }
 # NOTE: this is a compatibility for old style config,
 # TODO: remove in cacheops 3.0

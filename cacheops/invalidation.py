@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
-from collections import defaultdict
+from collections import defaultdict, Counter
 from funcy import memoize, post_processing, ContextDecorator
 from django.db.models.expressions import ExpressionNode
 
-from .conf import redis_client, handle_connection_failure
-from .utils import non_proxy, load_script, get_thread_id, NOT_SERIALIZED_FIELDS
+from .conf import redis_client, handle_connection_failure, model_profile
+from .utils import non_proxy, load_script, get_thread_id, NOT_SERIALIZED_FIELDS, get_related_objects
 
 
 __all__ = ('invalidate_obj', 'invalidate_model', 'invalidate_all', 'no_invalidation')
@@ -24,10 +24,19 @@ def invalidate_dict(model, obj_dict):
         json.dumps(obj_dict, default=str)
     ])
 
-def invalidate_obj(obj):
+def invalidate_obj(obj, classes_handled=None):
     """
     Invalidates caches that can possibly be influenced by object
     """
+    profile = model_profile(obj.__class__)
+    max_depth = profile['invalidate_related_objects_depth']
+    if max_depth:
+        if classes_handled is None:
+            classes_handled = Counter()
+        if classes_handled.get(obj.__class__, 0) <= max_depth:
+            classes_handled[obj.__class__] += 1
+            for item in get_related_objects(obj, classes_handled):
+                invalidate_obj(item, classes_handled)
     model = non_proxy(obj.__class__)
     invalidate_dict(model, get_obj_dict(model, obj))
 
