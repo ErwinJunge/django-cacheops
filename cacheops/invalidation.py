@@ -35,7 +35,7 @@ def invalidate_obj(obj, classes_handled=None):
             classes_handled = Counter()
         if classes_handled.get(obj.__class__, 0) <= max_depth:
             classes_handled[obj.__class__] += 1
-            for item in get_related_objects(obj, classes_handled):
+            for item in get_related_objects(obj, classes_handled, max_depth):
                 invalidate_obj(item, classes_handled)
     model = non_proxy(obj.__class__)
     invalidate_dict(model, get_obj_dict(model, obj))
