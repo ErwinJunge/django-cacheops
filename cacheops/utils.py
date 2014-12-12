@@ -215,19 +215,19 @@ def get_related_objects(obj, classes_to_ignore=None, max_depth=0):
         obj._meta.local_fields,
     )
     for field in foreign_keys:
-        if classes_to_ignore.get(field.model, 0) <= max_depth:
+        related_model = field.rel.to
+        if classes_to_ignore.get(related_model, 0) <= max_depth:
             pk = getattr(obj, field.attname)
             if pk:
-                prefetch_related_args = get_prefetch_related_args(field.model)
+                prefetch_related_args = get_prefetch_related_args(related_model)
                 try:
                     item = (
-                        field
-                        .model
+                        related_model
                         .objects
                         .prefetch_related(*prefetch_related_args)
                         .select_related()
                         .get(pk=pk)
                     )
                     yield item
-                except field.model.DoesNotExist:
+                except related_model.DoesNotExist:
                     pass
