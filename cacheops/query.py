@@ -311,7 +311,7 @@ class ManagerMixin(object):
     @once_per('cls')
     def _install_cacheops(self, cls):
         # Django 1.7 migrations create lots of fake models, just skip them
-        if cls.__module__ == '__fake__':
+        if cls.__module__ in ('__fake__', '_south_mock'):
             return
 
         cls._cacheprofile = model_profile(cls)
