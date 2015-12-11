@@ -3,6 +3,7 @@ import json
 from collections import defaultdict, Counter
 from funcy import memoize, post_processing, ContextDecorator
 from django.db.models.expressions import ExpressionNode
+from django.contrib.contenttypes.models import ContentType
 
 from .conf import redis_client, handle_connection_failure, model_profile
 from .utils import non_proxy, load_script, get_thread_id, NOT_SERIALIZED_FIELDS, get_related_objects
@@ -29,6 +30,8 @@ def invalidate_obj(obj, classes_handled=None):
     Invalidates caches that can possibly be influenced by object
     """
     # FIXME: Reduce db queries by getting obj again with deep prefetch_related_arg argument
+    if isinstance(obj, ContentType):
+        return
     profile = model_profile(obj.__class__)
     max_depth = profile['invalidate_related_objects_depth']
     if max_depth:
