@@ -373,7 +373,7 @@ class ManagerMixin(object):
         # Django 1.7+ migrations create lots of fake models, just skip them
         # NOTE: we make it here rather then inside _install_cacheops()
         #       because we don't want @once_per() to hold refs to all of them.
-        if cls.__module__ != '__fake__':
+        if cls.__module__ not in ('__fake__', '_south_mock'):
             self._install_cacheops(cls)
 
     def _pre_save(self, sender, instance, **kwargs):
