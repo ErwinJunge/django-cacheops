@@ -30,10 +30,10 @@ def invalidate_obj(obj, classes_handled=None):
     Invalidates caches that can possibly be influenced by object
     """
     # FIXME: Reduce db queries by getting obj again with deep prefetch_related_arg argument
-    if isinstance(obj, ContentType):
-        return
     profile = model_profile(obj.__class__)
     max_depth = profile['invalidate_related_objects_depth']
+    if isinstance(obj, ContentType):
+        max_depth = 0
     if max_depth:
         if classes_handled is None:
             classes_handled = Counter()
